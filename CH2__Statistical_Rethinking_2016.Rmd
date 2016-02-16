@@ -1,0 +1,227 @@
+---
+title: "Statistical_Rethinking_2016"
+author: "Richard Podkolinski"
+date: "16 February 2016"
+output: 
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+# Chapters {.tabset}
+
+## Chapter 2
+
+```{r Loaders, message=FALSE, warning=FALSE, echo=FALSE}
+library(rethinking)
+```
+
+```{r 2.1}
+ways = c(0, 3, 8, 9, 0)
+ways / sum(ways)
+```
+
+```{r 2.2}
+dbinom(6, size = 9, prob = 0.5)
+```
+
+```{r 2.3}
+p_grid = seq(0, 1, length.out = 20)
+prior = rep(1, 20)
+likelihood = dbinom(6, size = 9, prob=p_grid)
+unstd_post = likelihood * prior
+posterior  = unstd_post / sum(unstd_post)
+```
+
+```{r 2.4}
+plot(p_grid, posterior, type = "b", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+mtext("20 Points")
+```
+
+```{r 2.5}
+prior = ifelse(p_grid < 0.5, 0, 1)
+prior = exp( -5*abs(p_grid - 0.5))
+likelihood = dbinom(6, size = 9, prob=p_grid)
+unstd_post = likelihood * prior
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "b", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+```{r 2.6}
+globe_qa = map(
+  alist(
+    w ~ dbinom(9, p), # Binomial Likelihood
+    p ~ dunif(0,1)    # Uniform Prior
+  ),
+  data = list(w=6)
+)
+
+precis(globe_qa)
+
+```
+
+```{r 2.7}
+# Analytical Calculation
+w = 6
+n = 9
+curve(dbeta(x, w+1, n-w+1), from=0, to=1)
+# Quadratic Approximation
+curve(dnorm(x, 0.67, 0.16), lty=2, add=TRUE)
+
+```
+
+### Exercises
+
+**Easy**
+
+2E1. Which of the expressions below correspond to the statement: the probability of rain on Monday?
+
+(4) $\frac{Pr(rain, Monday)}{Pr(Monday)}$
+
+2E2. Which of the following statements corresponds to the expression: Pr(Monday|rain)?
+
+(3) The probability that it is Monday given that it is raining.
+
+2E3. Which of the expressions below correspond to the statement: the probability that it is Monday, given that it is raining?
+
+(1) $Pr(Monday|rain)$
+
+2E4. The Bayesian statistician Bruno de Finetti (1906–1985) began his book on probability theory with the declaration: “PROBABILITY DOES NOT EXIST.” The capitals appeared in the original, so I imagine de Finetti wanted us to shout this statement. What he meant is that probability is a device for describing uncertainty from the perspective of an observer with limited knowledge; it has no objective reality. Discuss the globe tossing example from the chapter, in light of this statement. What does it mean to say “the probability of water is 0.7”?
+
+(A) de Finetti was one of the founding members of the subjectivist school of probability. For him, probability was only a collection of beliefs about the outside world. Thus, when we say the probability of water is 0.7, we are not describing the 'big world' that there is a proportion of 0.7 of water to total area on the globe. What we are describing is instead our belief about the quantity of water on the earth, which is maximized at the value of 0.7.
+
+**Medium**
+
+2M1. Recall the globe tossing model from the chapter. Compute and plot the grid approximate posterior distribution for each of the following sets of observations. In each case, assume a uniform prior for p.
+(1) W, W, W
+(2) W, W, W, L
+(3) L, W, W, L, W, W, W
+
+(1) W, W, W
+```{r 2M1_1}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+likelihood = dbinom(3, size = 3, prob = p_grid)
+unstd_post = likelihood * prior
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+(2) W, W, W, L
+```{r 2M1_2}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+likelihood = dbinom(3, size = 4, prob = p_grid)
+unstd_post = likelihood * prior
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+(3) L, W, W, L, W, W, W
+```{r 2M1_3}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+likelihood = dbinom(5, size = 7, prob = p_grid)
+unstd_post = prior * likelihood
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+2M2. Now assume a prior for p that is equal to zero when $p < 0.5$ and is a positive constant when $p > 0.5$. Again compute and plot the grid approximate posterior distribution for each of the sets of observations in the problem just above.
+
+
+(1) W, W, W
+```{r 2M2_1}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+prior  = ifelse(p_grid < 0.5, 0, prior)
+likelihood = dbinom(3, size = 3, prob = p_grid)
+unstd_post = prior * likelihood
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+(2) W, W, W, L
+```{r 2M2_2}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+prior  = ifelse(p_grid < 0.5, 0, prior)
+likelihood = dbinom(3, size = 4, prob = p_grid)
+unstd_post = prior * likelihood
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+(3) L, W, W, L, W, W, W
+
+```{r 2M2_3}
+p_grid = seq(0, 1, length.out = 1e3)
+prior  = rep(1, length(p_grid))
+prior  = ifelse(p_grid < 0.5, 0, prior)
+likelihood = dbinom(5, size = 7, prob = p_grid)
+unstd_post = prior * likelihood
+posterior  = unstd_post / sum(unstd_post)
+plot(p_grid, posterior, type = "l", 
+     xlab = "Probability of Water", ylab = "Posterior Probability")
+```
+
+2M3. Suppose there are two globes, one for Earth and one for Mars. The Earth globe is 70% covered in water. The Mars globe is 100% land. Further suppose that one of these globes—you don’t know which—was tossed in the air and produced a “land” observation. Assume that each globe was equally likely to be tossed. Show that the posterior probability that the globe was the Earth, conditional on seeing “land” $(Pr(Earth|land))$, is 0.23.
+
+(A) So $Pr(Land|Earth) = 0.3$ and $Pr(Land|Mars) = 1.0$ and $Pr(Earth) = 0.5$ and $Pr(Mars) = 0.5$
+
+Therefore:
+\begin{align}
+Pr(Earth|Land) 
+&= \frac{Pr(Land|Earth)Pr(Earth)}{Pr(Land)}
+\\
+\\
+&= \frac{Pr(Land|Earth)Pr(Earth)}{\sum_{Earth}{{Pr(Land|Earth)Pr(Earth)}}}
+\\
+\\
+&= \frac{Pr(Land|Earth)Pr(Earth)}{Pr(Land|Earth)Pr(Earth) + Pr(Land|Mars)Pr(Mars)}
+\\
+\\
+&= \frac{0.3 \cdot 0.5}{(0.3 \cdot 0.5)(1.0 \cdot 0.5)}
+\\
+\\
+&= 0.2307692
+\end{align}
+
+```{r 2M3}
+(0.3 * 0.5) / ((0.3 * 0.5) + (1*0.5))
+```
+
+
+2M4. Suppose you have a deck with only three cards. Each card has two sides, and each side is either black or white. One card has two black sides. The second card has one black and one white side. The third card has two white sides. Now suppose all three cards are placed in a bag and shuffled. Someone reaches into the bag and pulls out a card and places it flat on a table. A black side is shown facing up, but you don’t know the color of the side facing down. Show that the probability that the other side is also black is 2/3. Use the counting method (Section 2 of the chapter) to approach this problem. This means counting up the ways that each card could produce the observed data (a black side facing up on the table).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
