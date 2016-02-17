@@ -1,0 +1,123 @@
+---
+title: "CH_Statistical_Rethinking_2011"
+author: "Richard Podkolinski"
+date: "February 17, 2016"
+output: 
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+# Statistical Thinking 2011 Edition Code Chapters
+
+## Chapter 2
+
+```{r dependencies, echo=FALSE}
+library(rethinking)
+library(bbmle)
+```
+
+```{r 2.1}
+dbinom(6, size = 10, prob = 0.7)
+```
+
+```{r 2.2}
+curve( dbinom(6, size = 10, prob = x), from = 0, to = 1)
+```
+
+```{r 2.3}
+models = seq(0, 1, length.out = 1e3)
+prior = rep(1, 1e3)
+likelihood = dbinom(6, size = 10, prob = models)
+unst_post = prior * likelihood
+post = unst_post / sum(unst_post)
+plot(models, post, type="l")
+```
+
+```{r 2.4}
+prior = rep(1, 1e3)
+prior = ifelse(models > 0.75, 0, prior)
+likelihood = dbinom(6, size = 10, prob = models)
+unst_post = prior * likelihood
+post = unst_post / sum(unst_post)
+plot(models, post, type="l")
+```
+
+```{r 2.5}
+prior = exp(-5*abs(models-0.5))
+likelihood = dbinom(6, size = 10, prob = models)
+unst_post = prior * likelihood
+post = unst_post / sum(unst_post)
+plot(models, post, type="l")
+```
+
+```{r 2.6}
+p = runif(1000)
+-log(prod(p))
+sum(-log(p))
+```
+
+
+```{r 2.7-2.8}
+0.7/7 == 0.1
+all.equal(0.7/7, 0.1)
+```
+
+```{r 2.9-2.12}
+models = seq(0, 1, by=1e-3)
+nlL = -dbinom(6, size = 10, prob = models, log = TRUE)
+plot( nlL ~ models , type="l")
+models[which.min(nlL)]
+```
+
+Hill Climbing
+```{r 2.13}
+-dbinom(6, size = 10, prob = 0.5, log = TRUE)
+-dbinom(6, size = 10, prob = 0.501, log = TRUE)
+```
+
+
+
+```{r 2.14-2.18}
+pw_mle = optim(0.5, fn=function(pw) -dbinom(6, 10, pw, TRUE))
+optimize(f = function(pw) -dbinom(6, 10, pw, TRUE), c(0,1))
+str(pw_mle)
+pw_mle$par
+```
+
+
+```{r 2.19-2.26}
+library(bbmle)
+pw_mle2 = mle2( nw ~ dbinom( size = 10, prob=pw), data=list(nw=6), start=list(pw=0.5) )
+dbinom(6, size = 10, prob = -1)
+pw_mle2 = mle2( nw ~ dbinom( size = 10, prob=pw), data=list(nw=6), start=list(pw=0.5), trace = TRUE)
+summary(pw_mle2)
+precis(pw_mle2)
+```
+
+```{r 2.27-2.28}
+models = seq(0, 1, by=1e-3)
+post = dbinom(6, size = 10, prob=models)
+plot(models, post, type="l")
+```
+
+```{r 2.29}
+samples_pw = sample(models, size = 1e4, prob = post, replace = TRUE)
+plot(1:length(samples_pw), samples_pw, col=col.alpha("slateblue", alpha = 0.4))
+plot(density(samples_pw, width=1e-2), col="slateblue")
+```
+
+
+```{r 2.30-2.31}
+length(samples_pw[samples_pw <= 0.5])
+length(samples_pw[samples_pw <= 0.5]) / length(samples_pw)
+length(samples_pw[samples_pw >= 0 & samples_pw <= 0.5])
+```
+
+```{r 2.32-2.34}
+HPDI(samples_pw, prob = 0.95)
+quantile(samples_pw, probs = c(0.025, 0.975))
+PCI(samples_pw, prob = 0.95)
+```
+
