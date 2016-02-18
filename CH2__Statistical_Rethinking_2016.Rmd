@@ -1,5 +1,5 @@
 ---
-title: "Statistical_Rethinking_2016"
+title: "CH2_Statistical_Rethinking_2016"
 author: "Richard Podkolinski"
 date: "16 February 2016"
 output: 
