@@ -9,4 +9,25 @@ output:
     toc_float: true
 ---
 
+```{r 3.1}
+library(rethinking)
+
+PrPV = 0.95
+PrPM = 0.01
+PrV  = 0.001
+PrP = PrPV * PrV + PrPM*(1-PrV)
+PrVP = (PrPV * PrV) / PrP
+```
+
+```{r 3.2-3.5}
+p_grid = seq(0,1, length.out = 1e3)
+prior = rep(1, 1e3)
+likelihood = dbinom(6, size = 9, prob = p_grid)
+post = prior * likelihood
+post = post / sum(post)
+samples = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
+plot(samples)
+dens(samples)
+
+```
 
