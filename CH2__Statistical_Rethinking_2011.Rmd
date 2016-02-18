@@ -121,3 +121,14 @@ quantile(samples_pw, probs = c(0.025, 0.975))
 PCI(samples_pw, prob = 0.95)
 ```
 
+```{r 2.35}
+par(mfrow=c(1,2))
+curve(-x^2, from = -3, to = 3, main="a parabola")
+curve(exp(-x^2), from = -3, to = 3, main = "exp parabola")
+```
+
+```{r 2.36-2.37}
+qnorm(c(0.025, 0.975), mean = 0.6, sd=sqrt(1/41.667))
+0.6 + c(-1,1)*1.96*sqrt(1/41.667)
+```
+
