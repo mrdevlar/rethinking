@@ -132,3 +132,52 @@ qnorm(c(0.025, 0.975), mean = 0.6, sd=sqrt(1/41.667))
 0.6 + c(-1,1)*1.96*sqrt(1/41.667)
 ```
 
+
+```{r 2.38-2.42}
+pw_mle = optim(0.5, fn=function(pw) -dbinom(6, 10, pw, TRUE), hessian = TRUE)
+pw_mle$hessian
+sqrt(1 / pw_mle$hessian)
+summary(pw_mle2)@coef[,2]
+vcov(pw_mle2)
+```
+
+```{r 2.43}
+nw = 6
+pw = 0.6
+n  = 10
+delta = 1e-5
+pw2 = pw + delta
+pw3 = pw2 + delta 
+nlL2 = -dbinom(nw, n, pw2, TRUE)
+nlL3 = -dbinom(nw, n, pw3, TRUE)
+d1 = (nlL3 - nlL2)/delta^2
+d2 = (d1 - 0)/delta
+sqrt(1/d2)
+```
+
+```{r 2.44-2.47}
+par(mfrow=c(1,1))
+models = seq(0, 1, by = 0.01)
+post = dbinom(6, size = 10, prob = models)
+sim_models = sample(models, size = 1e4, replace = TRUE, prob = post)
+sim_data = rbinom(n = 1e4, size = 10, prob = sim_models)
+simplehist(sim_data)
+sim_data_mle = rbinom(n = 1e4, size = 10, prob = 0.6)
+simplehist(sim_data_mle)
+quantile(sim_data, probs=c(0.025, 0.975))
+quantile(sim_data_mle, probs=c(0.025, 0.975))
+```
+
+
+```{r}
+models = seq(0, 1, by = 0.01)
+post = dbinom(30, size = 50, prob = models)
+sim_models = sample(models, size = 1e4, replace = TRUE, prob = post)
+sim_data = rbinom(n = 1e4, size = 50, prob = sim_models)
+simplehist(sim_data)
+sim_data_mle = rbinom(n = 1e4, size = 50, prob = 0.6)
+simplehist(sim_data_mle)
+HPDI(sim_data)
+HPDI(sim_data_mle)
+```
+
