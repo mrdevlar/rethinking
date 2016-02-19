@@ -26,8 +26,177 @@ likelihood = dbinom(6, size = 9, prob = p_grid)
 post = prior * likelihood
 post = post / sum(post)
 samples = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
-plot(samples)
-dens(samples)
-
+plot(samples, col = col.alpha("slateblue", 0.5))
+dens(samples, col = "slateblue")
 ```
+
+```{r 3.6-3.8}
+sum(post[p_grid < 0.5])
+sum(samples < 0.5) / 1e4
+sum(samples > 0.5 & samples < 0.75) / 1e4
+```
+
+
+```{r 3.9-3.10}
+quantile(samples, 0.8)
+quantile(samples, c(0.1, 0.9))
+```
+
+
+```{r 3.11-3.13}
+p_grid = seq(0, 1, length.out = 1e3)
+prior = rep(1,1000)
+likelihood = dbinom(3, size = 3, prob = p_grid)
+post = prior * likelihood
+post = post / sum(post)
+samples = sample(p_grid, size = 1e4, replace = TRUE, prob = post)
+
+PI(samples, prob = 0.5)
+HPDI(samples, prob = 0.5)
+```
+
+
+```{r 3.14-3.16}
+p_grid[ which.max(post) ]
+chainmode(samples, adj = 0.01)
+mean(samples)
+median(samples)
+```
+
+```{r 3.17-3.19}
+sum(post*abs(0.5-p_grid))
+loss = sapply(p_grid, function(d) sum(post * abs(d-p_grid) ) )
+p_grid[which.min(loss)]
+plot(p_grid, loss, type="l")
+abline(v=p_grid[which.min(loss)], col="slateblue")
+```
+
+```{r 3.20-3.22}
+dbinom(0:2, size = 2, prob = 0.7)
+rbinom(1, size = 2, prob = 0.7)
+rbinom(10, size = 2, prob = 0.7)
+```
+
+```{r 3.23-3.24}
+dummy_w = rbinom(1e5, size = 2, prob = 0.7)
+table(dummy_w) / 1e5
+
+dummy_w = rbinom(1e5, size = 9, prob = 0.7)
+simplehist(dummy_w, xlab="dummy water count")
+```
+
+```{r 3.25-3.26}
+p_grid = seq(0, 1, length.out = 1e3)
+prior = rep(1, 1000)
+likelihood = dbinom(6, size = 9, prob = p_grid)
+post = prior * likelihood
+post = post / sum(post)
+samples = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
+w = rbinom(1e4, size = 9, prob = 0.6)
+w = rbinom(1e4, size = 9, prob = samples)
+simplehist(samples)
+```
+
+*** 
+
+### Exercises
+
+**Easy**
+
+These problems use the samples from the posterior distribution for the globe tossing example. This code will give you a specific set of samples, so that you can check your answers exactly. Use the values in samples to answer the questions that follow.
+
+```{r 3.27}
+p_grid = seq(0, 1, length.out = 1e3)
+prior = rep(1, 1000)
+likelihood = dbinom(6, size = 9, prob = p_grid)
+post = prior * likelihood
+post = post / sum(post)
+set.seed(100)
+samples = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
+```
+
+3E1. How much posterior probability lies below p = 0.2?
+
+```{r 3E1}
+sum(samples < 0.2) / 1e4
+sum(post[p_grid < 0.2])
+```
+
+
+3E2. How much posterior probability lies above p = 0.8?
+```{r 3E2}
+sum(samples > 0.8) / 1e4
+sum(post[p_grid > 0.8])
+```
+
+
+3E3. How much posterior probability lies between p = 0.2 and p = 0.8?
+```{r 3E3}
+sum(samples > 0.2 & samples < 0.8) / 1e4
+sum(post[p_grid > 0.2 & p_grid < 0.8])
+```
+
+
+3E4. 20% of the posterior probability lies below which value of p?
+```{r 3E4}
+quantile(samples, 0.2)
+```
+
+
+3E5. 20% of the posterior probability lies above which value of p?
+```{r 3E5}
+quantile(samples, 0.8)
+```
+
+
+3E6. Which values of p contain the narrowest interval equal to 66% of the posterior probability?
+```{r 3E6}
+HPDI(samples, prob=2/3)
+```
+
+
+3E7. Which values of p contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval?
+
+```{r 3E7}
+PI(samples, prob = 2/3)
+```
+
+**Medium**
+
+3M1. Suppose the globe tossing data had turned out to be 8 water in 15 tosses. Construct the posterior distribution, using grid approximation. Use the same flat prior as before.
+
+3M2. Draw 10,000 samples from the grid approximation from above. Then use the samples to calculate the 90% HPDI for p.
+
+3M3. Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?
+
+3M4. Using the posterior distribution constructed from the new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.
+
+3M5. Start over at 3M1, but now use a prior that is zero below p = 0.5 and a constant above p = 0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.
+
+
+**Hard**
+
+*Introduction*: The practice problems here all use the data below. These data indicate the gender (male=1, female=0) of officially reported first and second born children in 100 two-child families.
+
+So for example, the first family in the data reported a boy (1) and then a girl (0). The second family reported a girl (0) and then a boy (1). The third family reported two girls. You can load these two vectors into R’s memory by typing:
+
+Use these vectors as data. So for example to compute the total number of boys born across all of these
+births, you could use:
+
+```{r 3.28-3.30}
+library(rethinking)
+data(homeworkch3)
+sum(birth1) + sum(birth2)
+```
+
+
+3H1. Using grid approximation, compute the posterior distribution for the probability of a birth being a boy. Assume a uniform prior probability. Which parameter value maximizes the posterior probability?
+
+3H2. Using the sample function, draw 10,000 random parameter values from the posterior distribution you calculated above. Use these samples to estimate the 50%, 89%, and 97% highest posterior density intervals.
+
+3H3. Use rbinom to simulate 10,000 replicates of 200 births. You should end up with 10,000 numbers, each one a count of boys out of 200 births. Compare the distribution of predicted numbers of boys to the actual count in the data (111 boys out of 200 births). There are many good ways to visualize the simulations, but the dens command (part of the rethinking package) is probably the easiest way in this case. Does it look like the model fits the data well? That is, does the distribution of predictions include the actual observation as a central, likely outcome?
+
+3H4. Now compare 10,000 counts of boys from 100 simulated first borns only to the number of boys in the first births, birth1. How does the model look in this light?
+
+3H5. The model assumes that sex of first and second births are independent. To check this assumption, focus now on second births that followed female first borns. Compare 10,000 simulated counts of boys to only those second births that followed girls. To do this correctly, you need to count the number of first borns who were girls and simulate that many births, 10,000 times. Compare the counts of boys in your simulations to the actual observed count of boys following girls. How does the model look in this light? Any guesses what is going on in these data?
 
