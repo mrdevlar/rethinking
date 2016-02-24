@@ -9,4 +9,82 @@ output:
     toc_float: true
 ---
 
+```{r}
+library(rethinking)
+```
+
+
+```{r 3.1}
+p = sum(dbinom(0:5, size = 10, prob = 0.7))
+```
+
+```{r 3.2}
+lik_mle = dbinom(5, 10, 0.5)
+lik_H0  = dbinom(5, 10, 0.7)
+lik_mle / lik_H0
+```
+
+```{r 3.3-3.7}
+models = seq(from = 0, to = 1, by = 1e-3)
+prior = rep(1, length(models))
+h0idx = min( which(models >= 0.7))
+prior[h0idx] = 10
+prior = prior / sum(prior)
+likelihood = dbinom(5, size = 10, prob = models)
+PrD = sum(likelihood * prior)
+post = likelihood * prior / PrD
+```
+
+```{r Plots}
+plot(1:length(prior), prior, type="l", lty="dotted", main="Prior")
+plot(1:length(likelihood), likelihood, type="l", main="Likelihood")
+plot(1:length(post), post, type="l", main="Posterior")
+```
+
+```{r 3.8-3.9}
+
+calc_p = function(n=10, nw=1, pw_h0 = 0.7){
+  if( nw/ n <= pw_h0 ) {
+    p = sum(dbinom(0:nw, n, pw_h0))
+  } else {
+    p = sum(dbinom(n:nw, n, pw_h0))
+  }
+  return(p)
+}
+
+
+sim_false_accept = function(n=10, pw_true = 0.1, pw_h0 = 0.7, R = 9999, alpha = 0.05){
+  nw = rbinom(R , size = n, prob = pw_true)
+  p = sapply(nw, function(z) calc_p(nw = z, n = n, pw_h0 = pw_h0) )
+  accept_null_nhst = ifelse( p  > alpha, 1, 0)
+  accept_null_mle  = ifelse( nw/ n == pw_h0, 1, 0)
+  avg_error_nhst <- mean( abs( accept_null_nhst*(pw_true-pw_h0) + (1-accept_null_nhst)*(pw_true-nw/n) ) )
+  avg_error_mle  = mean( abs( pw_true  - nw/n ))
+  out = c(mean(accept_null_nhst), mean(accept_null_mle), avg_error_nhst, avg_error_mle)
+  return(out)
+}
+
+```
+
+```{r 3.10}
+x = 1:10
+x_squared = sapply(x, function(z) z^2)
+```
+
+```{r 3.11}
+models = seq(0.01, 0.99, by = 1e-2)
+sims = sapply(models, function(z) sim_false_accept(pw_true = z, n = 10, pw_h0 = 0.7))
+```
+
+```{r NHST Plots}
+plot(1 - sims[1,] ~ models, type="l", ylab = "Prob to Reject Null")
+lines(1 - sims[2,] ~ models, lty= 3)
+
+plot(sims[3,] ~ models, type="l", ylab="Average Error")
+lines(sims[4,] ~ models)
+```
+
+```{r 3.12-3.17}
+dbinom(10, size = 20)
+```
 
