@@ -92,9 +92,12 @@ likelihood = dbinom(6, size = 9, prob = p_grid)
 post = prior * likelihood
 post = post / sum(post)
 samples = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
+
 w = rbinom(1e4, size = 9, prob = 0.6)
+simplehist(w)
+
 w = rbinom(1e4, size = 9, prob = samples)
-simplehist(samples)
+simplehist(w)
 ```
 
 *** 
@@ -165,11 +168,42 @@ PI(samples, prob = 2/3)
 
 3M1. Suppose the globe tossing data had turned out to be 8 water in 15 tosses. Construct the posterior distribution, using grid approximation. Use the same flat prior as before.
 
+```{r 3M1}
+p_grid = seq(0, 1, length.out = 1e4)
+prior = rep(1, 1e4)
+likelihood = dbinom(8, size = 15, prob = p_grid)
+post = prior * likelihood
+post = post / sum(post)
+plot(p_grid, post, type="l")
+```
+
+
 3M2. Draw 10,000 samples from the grid approximation from above. Then use the samples to calculate the 90% HPDI for p.
+
+```{r 3M2}
+pw_sample = sample(p_grid, prob = post, size = 1e4, replace = TRUE)
+dens(pw_sample, show.HPDI = 0.9)
+HPDI(pw_sample, prob = 0.9)
+```
+
 
 3M3. Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?
 
+```{r 3M3}
+pw_sample
+
+# dummy_w = rbinom(1e5, size = 15, prob = 8/15)
+# x = table(dummy_w) / 1e5
+# x["8"]
+```
+
+
 3M4. Using the posterior distribution constructed from the new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.
+
+```{r 3M4}
+
+```
+
 
 3M5. Start over at 3M1, but now use a prior that is zero below p = 0.5 and a constant above p = 0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.
 
