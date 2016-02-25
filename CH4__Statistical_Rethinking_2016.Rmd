@@ -1,0 +1,12 @@
+---
+title: "CH4_Statistical_Rethinking_2016"
+author: "Richard Podkolinski"
+date: "25 February 2016"
+output: 
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+# Chapter 4

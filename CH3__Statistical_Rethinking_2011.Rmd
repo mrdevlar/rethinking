@@ -9,6 +9,8 @@ output:
     toc_float: true
 ---
 
+# Chapter 3
+
 ```{r}
 library(rethinking)
 ```
