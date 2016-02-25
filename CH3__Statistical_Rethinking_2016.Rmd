@@ -192,18 +192,20 @@ HPDI(pw_sample, prob = 0.9)
 3M3. Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?
 
 ```{r 3M3}
-pw_sample
+# pw_sample
 
-# dummy_w = rbinom(1e5, size = 15, prob = 8/15)
-# x = table(dummy_w) / 1e5
-# x["8"]
+dummy_w = rbinom(1e5, size = 15, prob = 8/15)
+x = table(dummy_w) / 1e5
+x["8"]
 ```
 
 
 3M4. Using the posterior distribution constructed from the new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.
 
 ```{r 3M4}
-
+dummy_w = rbinom(1e5, size = 9, prob = 8/15)
+x = table(dummy_w) / 1e5
+x["6"]
 ```
 
 

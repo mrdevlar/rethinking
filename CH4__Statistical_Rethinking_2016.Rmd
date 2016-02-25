@@ -10,3 +10,226 @@ output:
 ---
 
 # Chapter 4
+
+```{r Preloads}
+library(rethinking)
+
+```
+
+```{r 4.1}
+pos = replicate(1000, sum(runif(16, -1, 1)))
+dens(pos, adj = 0.2, col = "slateblue", norm.comp = T)
+```
+
+
+```{r 4.2-4.3}
+prod(1 + runif(12, 0, 0.1))
+
+growth = replicate(1e4, prod(1 + runif(12, 0, 0.1)))
+dens(growth, norm.comp = TRUE)
+```
+
+
+Small vs Big Deviations and Normality 
+```{r 4.4}
+big = replicate(1e4, prod(1 + runif(12,0, 0.5)))
+small = replicate(1e4, prod(1 + runif(12,0, 0.01)))
+dens(big, norm.comp = TRUE)
+dens(small, norm.comp = TRUE)
+```
+
+
+```{r 4.5}
+log_big = replicate(1e4, log(prod(1 + runif(12, 0, 0.5))))
+dens(log_big, norm.comp = TRUE)
+```
+
+
+
+
+```{r 4.6}
+w = 6
+n = 9
+p_grid = seq(0,1, length.out = 100)
+post = dbinom(w,n,p_grid) * dunif(p_grid, 0, 1)
+post = post / sum(post)
+
+plot(1:length(post), post, type="l")
+```
+
+The above is just:
+
+$$\Pr(p|w,n) = \frac{\text{Binomial}(w|n,p)\text{Uniform}(p|0,1)}{\int \text{Binomial}(w|n,p)\text{Uniform}(p|0,1) dp} $$
+
+```{r 4.7-4.10}
+data("Howell1")
+d = Howell1
+str(d)
+hist(d$height)
+d2 = d[d$age >= 18, ]
+```
+
+```{r 4.11-4.12}
+curve(dnorm(x, 178, 20), from = 100, to = 250)
+curve(dnorm(x, 0, 50), from = -10, to = 60)
+```
+
+$$ $$
+
+```{r 4.13}
+sample_mu = rnorm(1e4, 178, 20)
+sample_sig = runif(1e4, 0, 50)
+prior_h = rnorm(1e4, sample_mu, sample_sig)
+dens(prior_h)
+```
+
+$$ \Pr(\mu, \sigma| h) = \frac{\prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) }{\int \int \prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) d\mu d\sigma} $$
+
+```{r 4.14}
+mu_list  = seq(153, 158, length.out = 200)
+sig_list = seq(7, 9, length.out = 200)
+post     = expand.grid(mu = mu_list, sig = sig_list)
+
+post$LL  = sapply(1:nrow(post), function(i){
+  sum( dnorm(d2$height, mean = post$mu[i], sd = post$sig[i], log = TRUE))
+})
+
+post$prod = post$LL + # Likelihood
+            dnorm( post$mu, 178, 20, log = TRUE ) + # Prior for mu
+            dunif(post$sig, 0, 50, log = TRUE)      # Prior for sigma
+
+post$prob = exp(post$prod - max(post$prod)) # Return to normal scale, without underflow
+```
+
+
+```{r 4.15-4.16}
+contour_xyz(post$mu, post$sig, post$prob)
+image_xyz(post$mu, post$sig, post$prob)
+```
+
+```{r 4.17-4.18}
+sample_rows = sample(1:nrow(post), size = 1e4, replace = TRUE, prob = post$prob)
+sample_mu   = post$mu[sample_rows]
+sample_sig  = post$sig[sample_rows]
+plot(sample_mu, sample_sig, cex=0.5, pch=16, col = col.alpha(rangi2, 0.3))
+```
+
+```{r 4.19-4.20}
+dens(sample_mu, norm.comp = TRUE) 
+dens(sample_sig, norm.comp = TRUE)
+HPDI(sample_mu)
+HPDI(sample_sig)
+```
+
+```{r 4.21-4.23}
+d3 = sample(d2$height, size = 20)
+
+mu_list = seq(150,170, length.out = 200)
+sig_list = seq(4,20, length.out = 200)
+post2 = expand.grid(mu = mu_list, sig = sig_list)
+
+post2$LL = sapply(1:nrow(post2), function(i){
+  sum(dnorm(d3, mean=post2$mu[i], sd=post2$sig[i], log = TRUE))
+})
+
+post2$prod = post2$LL + dnorm(post2$mu, 178, 20, TRUE) + dunif(post2$sig, 0, 50, TRUE)
+post2$prob = exp(post2$prod - max(post2$prod) )
+
+sample2_rows = sample(1:nrow(post2), size = 1e4, replace = TRUE, prob = post2$prob)
+
+sample2_mu  = post2$mu[ sample2_rows  ]
+sample2_sig = post2$sig[ sample2_rows ]
+
+plot(sample2_mu, sample2_sig, cex = 0.5, col = col.alpha(rangi2, 0.3), pch = 16,
+     xlab="mu", ylab="sigma")
+
+dens(sample2_sig, norm.comp = TRUE)
+```
+
+
+```{r 4.24}
+d = Howell1
+d2 = d[ d$age >= 18, ]
+```
+
+\begin{align*}
+
+h_i &\sim \text{Normal}(\mu, \sigma) \\
+\mu &\sim \text{Normal}(178,20) \\
+\sigma &\sim \text{Uniform}(0,50)
+
+\end{align*}
+
+```{r 4.25-4.27}
+flist = alist(
+  height ~ dnorm(mu, sig),
+  mu ~ dnorm(178, 20),
+  sig ~ dunif(0,50)
+)
+
+m41 = map(flist, data=d2)
+
+precis(m41)
+```
+
+```{r 4.28}
+start = list(
+  mu = mean(d2$height),
+  sig = sd(d2$height)
+)
+
+```
+
+The contents of alist() are not evaluated, while the contents of list() is evaulated. 
+
+```{r 4.29}
+
+m42 = map(
+  alist(
+    height ~ dnorm( mu, sig ),
+    mu ~ dnorm(178, 0.1),
+    sig ~ dunif(0, 50)
+  ),
+  data = d2
+)
+
+precis(m42)
+```
+
+```{r 4.30-4.31}
+vcov(m41)
+
+diag( vcov(m41) )
+cov2cor(vcov(m41))
+```
+
+```{r 4.32-4.33}
+post = extract.samples(m41, n = 1e4)
+head(post)
+
+precis(post)
+```
+
+Simulating multivariate random normals
+
+```{r 4.34}
+library(MASS)
+post = mvrnorm(n = 1e4, mu = coef(m41), Sigma = vcov(m41))
+```
+
+```{r 4.35-4.36}
+m41_logsig = map(
+  alist(
+    height  ~ dnorm(mu, exp(log_sig)),
+    mu      ~ dnorm(178, 20),
+    log_sig ~ dnorm(2, 10)
+  ),
+  data = d2
+)
+
+post = extract.samples(m41_logsig)
+sig = exp(post$log_sig)
+dens(sig, norm.comp = TRUE)
+
+```
+
