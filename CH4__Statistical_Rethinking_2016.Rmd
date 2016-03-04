@@ -92,7 +92,7 @@ dens(prior_h)
 
 $$ \Pr(\mu, \sigma| h) = \frac{\prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) }{\int \int \prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) d\mu d\sigma} $$
 
-We generate a list of values for $\mu$ and $\sigma$, we then expand all possible combinations of those values with expand.grid(). We then use sapply to iterate over those grid combintations and calculate the density at each point. We do this at the log scale to avoid underflow issues. Finally, we generate the posterior by summing the priors and the likelihood at the log scale (remember that summing at the log scale is making a product at a normal scale). Finally, we can convert back to the normal scale by exponentiating the posterior. 
+We generate a list of values for $\mu$ and $\sigma$, we then expand all possible combinations of those values with expand.grid(). We then use sapply to iterate over those grid combinations and calculate the density at each point. We do this at the log scale to avoid underflow issues. Finally, we generate the posterior by summing the priors and the likelihood at the log scale (remember that summing at the log scale is making a product at a normal scale). Finally, we can convert back to the normal scale by exponentiating the posterior. 
 
 ```{r 4.14}
 mu_list  = seq(153, 158, length.out = 200)
@@ -203,7 +203,7 @@ start = list(
 
 ```
 
-The contents of alist() are not evaluated, while the contents of list() is evaulated. 
+The contents of alist() are not evaluated, while the contents of list() is evaluated. 
 
 
 This example uses a strong prior, a Normal distribution with a very small $\sigma = 0.1$ which makes it highly peaked. While this does not shift $\mu$ by a lot, it does massively inflate $\sigma$ as we have a greater amount of uncertainty about the location of $\mu$.
@@ -242,7 +242,7 @@ head(post)
 precis(post)
 ```
 
-Simulating multivariate random normals
+Simulating multivariate random normal
 
 ```{r 4.34}
 library(MASS)
@@ -325,4 +325,377 @@ m43 = map(
 
 ```
 
+"Posterior probabilities of parameter values describe the relative compatability of different states of the world with the data, according to the model." in this case $P(\mu, \sigma| D, M)$
+
+
+We can retrieve the table of estimates with the parameter correlations.
+
+```{r 4.40-4.41}
+precis(m43, corr = TRUE)
+```
+
+What you see in the above output is that $\alpha$ and $\beta$ are perfectly negatively correlated. This becomes a problem in more complex model, so we can avoid this by using Centering and Standardization. 
+
+Centering (is applied to the predictor variable)
+
+```{r 4.42-4.44}
+d2$weight_c = d2$weight - mean(d2$weight)
+
+m44 = map(
+  alist(
+    height ~ dnorm(mu, sig),
+    mu <- a + b * weight_c,
+    a ~ dnorm(178, 100),
+    b ~ dnorm(  0, 10),
+    sig ~ dunif(0, 50)
+  ),
+  data = d2
+)
+precis(m44, corr=TRUE)
+
+```
+
+```{r 4.45}
+# plot(height ~ weight, data = d2)
+# abline(a = coef(m43)["a"], b = coef(m43)["b"])
+
+ggplot(d2, aes(weight, height)) + geom_point(alpha=0.5, color="slateblue", size = 3) +
+  geom_abline(intercept = coef(m43)["a"], slope = coef(m43)["b"], size = 0.75, alpha = 0.5)
+
+# Alternative Methods
+# ggplot(d2, aes(weight, height)) + geom_point(alpha=0.5, color="slateblue", size = 3) +
+  # geom_smooth(method = "lm", se = TRUE)
+```
+
+
+```{r 4.46-4.47}
+post = extract.samples(m43)
+post[1:5,]
+precis(post)
+```
+
+
+```{r 4.48-4.49}
+opar = par(no.readonly = TRUE)
+
+par(mfrow = c(2,2))
+par(mar = c(3, 2,2, 1))
+
+dat_quant = c(10,50,150,352)
+
+for(quant in dat_quant) {
+  N = quant
+  dN = d2[1:N, ]
+  
+  mN = map(
+    alist(
+      height ~ dnorm( mu, sig ),
+      mu <- a + b * weight,
+      a ~ dnorm( 178, 100 ),
+      b ~ dnorm( 0, 10 ),
+      sig ~ dunif(0, 50)
+    ),
+    data = dN
+  )
+  
+  post = extract.samples(mN, n = 20)
+  
+  plot(dN$weight, dN$height,
+       xlim = range(d2$weight), ylim = range(d2$height),
+       col = rangi2, xlab = "weight", ylab = "height" )
+  
+  mtext(concat("N = ", N))
+  
+  for( i in 1:20 ){
+    abline(a = post$a[i], b = post$b[i], col = col.alpha("black", 0.3))
+  }
+}
+
+par(opar)
+```
+
+
+This is the value of heights when weight is 50, including the uncertainty associated with that mean. 
+
+```{r 4.50-4.52}
+post = extract.samples(m43)
+mu_at_50 = post$a + post$b * 50
+
+dens(mu_at_50, col=rangi2, lwd=2, xlab="mu|weight=50")
+HPDI(mu_at_50)
+```
+
+
+The link() function allows you to generate mean value of height for each value of weight within the dataset. It returns a $p \times q$ matrix, where $p$ is the number of samples from the posterior and $q$ is the number of rows in the data. In this case, the matrix is $1000 \times 352$ as we requested 1000 samples and there was 352 values in our dataset. 
+
+```{r 4.53}
+mu = link(m43)
+str(mu)
+```
+
+By default, link will generate a sample from the posterior distribution for each value in your data. We can also choose to feed it a sequence representing the horizontal axis.
+
+```{r 4.54}
+weight_seq = seq(25, 70, by = 1)
+
+mu = link(m43, data = data.frame(weight = weight_seq))
+str(mu)
+```
+
+Instead here we get 46 columns, as that is the length of the sequence we inputted into the link() function.
+
+
+We can visualize the uncertainty about the $\mu$ parameter at each value.
+
+```{r 4.55}
+plot( height ~ weight, d2, type = "n")
+
+for(i in 1:100) {
+  points(weight_seq, mu[i,], pch = 16, col=col.alpha(rangi2, 0.1))
+}
+```
+
+We can then summarize the distribution of $\mu$
+
+```{r 4.56-4.57}
+mu_mean = apply(mu, 2, mean)
+mu_HPDI = apply(mu, 2, HPDI, prob = 0.89)
+
+
+plot(height ~ weight, data = d2, col = col.alpha(rangi2, 0.5))
+
+lines(weight_seq, mu_mean)
+
+shade(mu_HPDI, weight_seq)
+```
+
+Overthinking: How link() Works
+
+```{r 4.58}
+post = extract.samples(m43)
+mu_link = function(weight) post$a + post$b * weight
+weight_seq = seq(25, 70, by = 1)
+mu = sapply(weight_seq, mu_link)
+mu_mean = apply(mu, 2, mean)
+mu_HPDI = apply(mu, 2, HPDI, prob = 0.89)
+```
+
+Prediction intervals. We so far have so far generated the prediction interval for the average height $\mu$ not the prediction intervals for actual heights. This requires that we encorporate $\sigma$ uncertainty into the prediction. 
+
+Reiterating the model:
+
+\begin{align*}
+h_i &\sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i &= \alpha + \beta x_i
+\end{align*}
+
+
+```{r 4.59}
+sim_height = sim(m43, data = list(weight = weight_seq))
+str(sim_height)
+```
+
+This matrix contains simulated heights, not distributions of plausable average height, $\mu$. We can plot the uncertainty about heights. 
+
+```{r 4.60-4.61}
+height_PI = apply(sim_height, 2, PI, prob = 0.89)
+
+
+plot(height ~ weight, d2, col = col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_HPDI, weight_seq)
+shade(height_PI, weight_seq)
+```
+
+We can also attempt to plot this with HPDI at 67% and 97% credible intervals.
+
+```{r 4.61Ex}
+height_HPDI = apply(sim_height, 2, HPDI, prob = 0.67)
+
+plot(height ~ weight, d2, col = col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_HPDI, weight_seq)
+shade(height_HPDI, weight_seq)
+
+height_HPDI = apply(sim_height, 2, HPDI, prob = 0.97)
+
+plot(height ~ weight, d2, col = col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_HPDI, weight_seq)
+shade(height_HPDI, weight_seq)
+```
+
+Clearly the 67% interval is far narrower than the 97% interval. 
+
+To smooth out the interval, we take a much larger quantity of samples.
+
+```{r 4.62}
+sim_height = sim(m43, data = list(weight = weight_seq), n = 1e4)
+height_PI = apply(sim_height, 2, PI, prob = 0.89)
+plot(height ~ weight, d2, col = col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_HPDI, weight_seq)
+shade(height_PI, weight_seq)
+```
+
+Overthinking: Rolling over your own sim()
+
+```{r 4.63}
+post = extract.samples(m43)
+weight_seq = 25:70
+sim_height = sapply(weight_seq, function(weight){
+  rnorm(n = nrow(post), mean = post$a + post$b * weight, sd = post$sig)
+})
+height_PI = apply(sim_height, 2, PI, prob = 0.89)
+```
+
+#### Polynomial Regression
+
+```{r 4.64}
+library(rethinking)
+data("Howell1")
+d = Howell1
+str(d)
+```
+
+
+This time we will be applying a parabolic model for the mean: $\mu = \alpha + \beta_1 x_i + \beta_2 x_i^2$
+
+We will take a moment to standardize the data (convert to z-scores). 
+
+```{r 4.65}
+d$weight_s = (d$weight - mean(d$weight)) / sd(d$weight)
+```
+
+Then we fit the following model:
+
+\begin{align*}
+h_i &\sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i &= \alpha + \beta_1 x_i + \beta_2 x_i^2 \\
+\alpha &\sim \text{Normal}(178, 100) \\
+\beta_1 &\sim \text{Normal}(0, 10) \\
+\beta_2 &\sim \text{Normal}(0, 10) \\
+\sigma &\sim \text{Uniform}(0, 50)
+\end{align*}
+
+```{r 4.66-4.67}
+d$weight_s2 = d$weight_s^2
+
+m45 = map(
+  alist(
+    height ~ dnorm(mu, sig),
+    mu <- a + b1 * weight_s + b2 * weight_s2,
+    a ~ dnorm(178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    sig ~ dunif(0,50)
+  ),
+  data = d
+)
+
+precis(m45)
+```
+
+We then plot the model fit.
+
+```{r 4.68-4.69}
+weight_seq = seq(-2.2, 2, length.out = 30)
+pred_dat = list(weight_s = weight_seq, weight_s2 = weight_seq^2)
+mu = link(m45, data=pred_dat)
+mu_mean = apply(mu, 2, mean)
+mu_PI   = apply(mu, 2, PI, prob = 0.89)
+sim_height = sim(m45, data = pred_dat)
+height_PI = apply(sim_height, 2, PI, prob = 0.89)
+
+plot(height ~ weight_s, d, col= col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_PI, weight_seq)
+shade(height_PI, weight_seq)
+```
+
+
+We can also attempt to fit a cubic function.
+
+\begin{align*}
+h_i &\sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i = \alpha + \beta_1 x_i + \beta_2 x_i^2 + \beta_3 x_i^3
+\end{align*}
+
+
+```{r 4.70}
+d$weight_s3 = d$weight_s^3
+
+m46 = map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1 * weight_s + b2 * weight_s2 + b3 * weight_s3,
+    a ~ dnorm( 178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    b3 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = d
+)
+
+
+
+weight_seq = seq(-2.2, 2, length.out = 30)
+pred_dat = list(weight_s = weight_seq, weight_s2 = weight_seq^2, weight_s3 = weight_seq^3)
+mu = link(m46, data=pred_dat)
+mu_mean = apply(mu, 2, mean)
+mu_PI   = apply(mu, 2, PI, prob = 0.89)
+sim_height = sim(m46, data = pred_dat)
+height_PI = apply(sim_height, 2, PI, prob = 0.89)
+
+plot(height ~ weight_s, d, col= col.alpha(rangi2, 0.5))
+lines(weight_seq, mu_mean)
+shade(mu_PI, weight_seq)
+shade(height_PI, weight_seq)
+```
+
+
+Overthinking: Converting back to natural scale
+
+```{r 4.71-4.72}
+plot(height ~ weight_s, d, col = col.alpha(rangi2, 0.5), xaxt = "n")
+
+at = -2:2
+labels = at*sd(d$weight) + mean(d$weight)
+axis(side = 1, at = at, labels = round(labels, 1))
+```
+
+
+### Exercises
+
+**Easy**
+
+4E1. In the model definition below, which line is the likelihood?
+
+\begin{align*}
+y_i = &\sim \text{Normal}(\mu, \sigma)
+\end{align*}
+
+4E2. In the model definition just above, how many parameters are in the posterior distribution?
+
+There are two parameters in the posterior distribution, $\mu$ and $\sigma$.
+
+4E3. Using the model definition, above, write down the appropriate form of Bayes' theorem that includes the proper likelihood and priors.
+
+\begin{align*}
+y_i = \frac{\prod_i \text{Normal}(\mu, \sigma) \times \text{Normal}(\mu | 0, 10) \times \text{Uniform}(\sigma |0, 10)}{\int \int \prod_i \text{Normal}(\mu, \sigma) \times \text{Normal}(\mu | 0, 10) \times \text{Uniform}(\sigma | 0, 10) d\mu d\sigma}
+\end{align*}
+
+4E4. In the model definition below, which line is hte linear model?
+
+\begin{align*}
+\mu_i = \alpha + \beta x_i
+\end{align*}
+
+4E5. In the model definition just above, how many parameters are in the posterior distribution?
+
+There are three parameters in the posterior distribution, $\alpha$, $\beta$ and $\sigma$.
+
+
+**Medium**
 
