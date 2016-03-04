@@ -699,3 +699,42 @@ There are three parameters in the posterior distribution, $\alpha$, $\beta$ and 
 
 **Medium**
 
+4M1. For the model definition below, simulate observed heights from the prior (not the posterior).
+
+```{r 4M1}
+prior_mu = rnorm(1e4, 0, 10)
+prior_sig = runif(1e4, 0,10)
+```
+
+4M2. Translate the model into a map() formula.
+
+```{r 4M2}
+
+map_list = alist(
+  y   ~ dnorm( mu, sig ),
+  mu  ~ dnorm( 0,  10 ),
+  sig ~ dunif( 0,  10 )
+)
+
+```
+
+4M3. Translate the map() formula below into a mathematical model definition.
+
+\begin{align*}
+y_i &\sim \text{Normal}(\mu, \sigma) \\
+\mu &= \alpha + \beta x_i \\
+a &\sim \text{Normal}(0, 50) \\
+b &\sim \text{Uniform}(0, 10) \\
+\sigma &\sim \text{Uniform}(0, 50)
+\end{align*}
+
+4M4. A sample of students is measured for height each year for 3 years. After the thrid year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors.
+
+\begin{align*}
+height_i &\sim \text{Normal}(\mu, \sigma) \\
+\mu &= \alpha + \beta year_i \\
+\alpha &\sim \text{Normal}(178,100)\\
+\beta &\sim  \text{Normal}(0, 10)\\
+\sigma &\sim \text{Uniform}(0, 50)
+\end{align*}
+
