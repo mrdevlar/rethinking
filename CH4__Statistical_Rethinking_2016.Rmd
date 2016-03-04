@@ -16,6 +16,8 @@ library(rethinking)
 
 ```
 
+### Why Normal Distributions are Normal
+
 ```{r 4.1}
 pos = replicate(1000, sum(runif(16, -1, 1)))
 dens(pos, adj = 0.2, col = "slateblue", norm.comp = T)
@@ -45,7 +47,7 @@ dens(log_big, norm.comp = TRUE)
 ```
 
 
-
+### A language for describing models
 
 ```{r 4.6}
 w = 6
@@ -61,6 +63,9 @@ The above is just:
 
 $$\Pr(p|w,n) = \frac{\text{Binomial}(w|n,p)\text{Uniform}(p|0,1)}{\int \text{Binomial}(w|n,p)\text{Uniform}(p|0,1) dp} $$
 
+
+### Gaussian Model of Height
+
 ```{r 4.7-4.10}
 data("Howell1")
 d = Howell1
@@ -69,12 +74,14 @@ hist(d$height)
 d2 = d[d$age >= 18, ]
 ```
 
+Plotting prior parameters, to see what they look like. The $\mu$ is Normally distributed with wide tails, where 50% of the density is between 164 and 191. The $\sigma$ is Uniform distributed and is flat from 0 to 50.
+
 ```{r 4.11-4.12}
 curve(dnorm(x, 178, 20), from = 100, to = 250)
-curve(dnorm(x, 0, 50), from = -10, to = 60)
+curve(dunif(x, 0, 50), from = -10, to = 60)
 ```
 
-$$ $$
+We can simulate heights by sampling from the prior distribution of individual heights.
 
 ```{r 4.13}
 sample_mu = rnorm(1e4, 178, 20)
@@ -84,6 +91,8 @@ dens(prior_h)
 ```
 
 $$ \Pr(\mu, \sigma| h) = \frac{\prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) }{\int \int \prod \text{Normal}(h_i|\mu, \sigma) \text{Normal}(\mu|178, 20)\text{Uniform}(\sigma|0,50) d\mu d\sigma} $$
+
+We generate a list of values for $\mu$ and $\sigma$, we then expand all possible combinations of those values with expand.grid(). We then use sapply to iterate over those grid combintations and calculate the density at each point. We do this at the log scale to avoid underflow issues. Finally, we generate the posterior by summing the priors and the likelihood at the log scale (remember that summing at the log scale is making a product at a normal scale). Finally, we can convert back to the normal scale by exponentiating the posterior. 
 
 ```{r 4.14}
 mu_list  = seq(153, 158, length.out = 200)
@@ -102,10 +111,14 @@ post$prob = exp(post$prod - max(post$prod)) # Return to normal scale, without un
 ```
 
 
+We can then generate contour and image plots for the posterior showing the peak.
+
 ```{r 4.15-4.16}
 contour_xyz(post$mu, post$sig, post$prob)
 image_xyz(post$mu, post$sig, post$prob)
 ```
+
+To examine the distribution, we sample from it (since most of the time, we will not be capable of doing a grid approximation).
 
 ```{r 4.17-4.18}
 sample_rows = sample(1:nrow(post), size = 1e4, replace = TRUE, prob = post$prob)
@@ -114,12 +127,16 @@ sample_sig  = post$sig[sample_rows]
 plot(sample_mu, sample_sig, cex=0.5, pch=16, col = col.alpha(rangi2, 0.3))
 ```
 
+We can then describe the distributions. 
+
 ```{r 4.19-4.20}
 dens(sample_mu, norm.comp = TRUE) 
 dens(sample_sig, norm.comp = TRUE)
 HPDI(sample_mu)
 HPDI(sample_sig)
 ```
+
+
 
 ```{r 4.21-4.23}
 d3 = sample(d2$height, size = 20)
@@ -146,8 +163,11 @@ plot(sample2_mu, sample2_sig, cex = 0.5, col = col.alpha(rangi2, 0.3), pch = 16,
 dens(sample2_sig, norm.comp = TRUE)
 ```
 
+We can see from the above that $\sigma$ is not normally distributed. We note that there is a positive skew in the distribution. This has to do with the fact that $\sigma$ must be positive, which results in greater uncertainty about how big the variance is, versus how small it is.
+
 
 ```{r 4.24}
+data("Howell1")
 d = Howell1
 d2 = d[ d$age >= 18, ]
 ```
@@ -159,6 +179,9 @@ h_i &\sim \text{Normal}(\mu, \sigma) \\
 \sigma &\sim \text{Uniform}(0,50)
 
 \end{align*}
+
+
+We can fit this model using the map() command. 
 
 ```{r 4.25-4.27}
 flist = alist(
@@ -182,6 +205,10 @@ start = list(
 
 The contents of alist() are not evaluated, while the contents of list() is evaulated. 
 
+
+This example uses a strong prior, a Normal distribution with a very small $\sigma = 0.1$ which makes it highly peaked. While this does not shift $\mu$ by a lot, it does massively inflate $\sigma$ as we have a greater amount of uncertainty about the location of $\mu$.
+
+
 ```{r 4.29}
 
 m42 = map(
@@ -196,12 +223,17 @@ m42 = map(
 precis(m42)
 ```
 
+
+
 ```{r 4.30-4.31}
 vcov(m41)
-
-diag( vcov(m41) )
-cov2cor(vcov(m41))
+diag( vcov(m41) ) # Variances of mu and sigma
+cov2cor(vcov(m41)) # Correlations bounded to -1 and +1
 ```
+
+
+We can again retrieve samples from the model using extract.samples(). This allows us to summarize the posterior.
+
 
 ```{r 4.32-4.33}
 post = extract.samples(m41, n = 1e4)
@@ -217,6 +249,9 @@ library(MASS)
 post = mvrnorm(n = 1e4, mu = coef(m41), Sigma = vcov(m41))
 ```
 
+
+We can get the estimate for $\sigma$ correct if we estimate it on the log scale. 
+
 ```{r 4.35-4.36}
 m41_logsig = map(
   alist(
@@ -231,5 +266,63 @@ post = extract.samples(m41_logsig)
 sig = exp(post$log_sig)
 dens(sig, norm.comp = TRUE)
 
+post$sig = sig
+precis(post)
 ```
+
+
+### Adding a predictor
+
+We take a look at weight, and plot the predictor vs the outcome. So height over weight.
+```{r 4.37}
+ggplot(d2, aes(x = weight, y = height)) + geom_point(alpha=0.5, color = "slateblue")
+```
+
+\begin{align*}
+
+h_i &\sim \text{Normal}(\mu_i, \sigma) \\
+\mu_i = \alpha + \beta x_i
+\alpha &\sim \text{Normal}(178,100) \\
+\beta $\sim \text{Normal}(0, 10) \\
+\sigma &\sim \text{Uniform}(0,50)
+
+\end{align*}
+**Note**, that the command requires <- be used for equality rather than = when using the map() function.
+
+```{r 4.38}
+library(rethinking)
+data("Howell1")
+d = Howell1
+d2 = d[ d$age >= 18, ]
+
+
+m43 = map(
+  alist(
+    height ~ dnorm(mu, sig),
+    mu <- a + b * weight,
+    a ~ dnorm(156, 100),
+    b ~ dnorm( 0 , 10 ),
+    sig ~ dunif(0, 50)
+  ),
+  data = d2
+)
+
+```
+
+There is an alternative way of implementing such a model, by embedding that can be used. Though there are helper functions that will be used later that depend on you having the above formulation instead. 
+
+```{r 4.39}
+
+m43 = map(
+  alist(
+    height ~ dnorm( a + b * weight, sig),
+    a ~ dnorm(156, 100),
+    b ~ dnorm( 0 , 10 ),
+    sig ~ dunif(0, 50)
+  ),
+  data = d2
+)
+
+```
+
 
