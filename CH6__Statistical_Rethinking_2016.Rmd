@@ -1,0 +1,71 @@
+---
+title: "CH6_Statistical_Rethinking_2016"
+author: "Richard Podkolinski"
+date: "April 2, 2016"
+output: 
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(rethinking)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r 6.1}
+sppnames = c("afarnesis", "africanus", "habilis", "boisei", "rudolfensis", "ergaster", "sapiens")
+brainvolcc = c(438,452,612,521,754,871,1350)
+masskg = c(37,35.5,34.5,41.5,55.5,61,53.5)
+d = data.frame(species = sppnames, brain = brainvolcc, mass = masskg)
+```
+
+```{r 6.2}
+m61 = lm(brain ~ mass , data=d)
+
+```
+
+
+
+```{r Figure 66}
+q = seq(0.01, 0.99, by = 0.01)
+p = 0.3
+fx = p * log(p/q) +(1-p) * log( (1-p) / (1-q) )
+
+data.frame(q = q, divergence = fx) %>%
+  ggplot(aes(x = q, y = divergence)) + geom_line() + geom_vline(xintercept = p, linetype = "dashed") +
+  geom_text(aes(x = 0.5, y = 1.5, label = "q = p")) + ylab("Divergence of q from p") + xlab(expression(q_1))
+
+```
+
+```{r 6.10}
+m61 = lm(brain ~ mass , data=d)
+
+(-2) * logLik(m61)
+```
+
+```{r 6.11}
+# standardize mass before fitting
+d$mass.s = (d$mass - mean(d$mass)) / sd(d$mass)
+
+# model definition and fit
+m68 = map(
+  alist(
+    brain ~ dnorm(mu, sig),
+    mu <- a + b* mass.s
+  ),
+  data = d,
+  start = list(a = mean(d$brain), b = 0, sig = sd(d$brain)), method = "Nelder-Mead"
+)
+
+# extract MAP estimates
+theta = coef(m68)
+
+# compute deviance
+dev = (-2) * sum(dnorm(d$brain, mean = theta[1] + theta[2] * d$mass.s, sd = theta[3], log = TRUE))
+dev
+```
+
+
