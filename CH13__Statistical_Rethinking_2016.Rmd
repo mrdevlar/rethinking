@@ -1,0 +1,109 @@
+---
+title: "CH13_Statistical_Rethinking_2016"
+author: "Richard Podkolinski"
+date: "May 8, 2016"
+output: 
+  html_document:
+  theme: journal
+  toc: true
+  toc_float: true
+---
+  
+# Statistical Rethinking Chapter 13    
+
+Define the average wait times in each cafe as well as the correlation between them.
+
+```{r 13.1}
+a = 3.5       # Average Wait Time
+b = (-1)      # Average Difference in Wait Times
+sigma_a = 1   # Stdev in Intercepts
+sigma_b = 0.5 # Stdev in Slopes
+rho = (-0.7)    # Correlation btwn Intercepts and Slopes
+```
+
+```{r 13.2}
+Mu = c(a, b)  # Vector of Means
+```
+
+```{r 13.3}
+cov_ab = sigma_a * sigma_b * rho                      # Covariance between Intercepts and Slopes
+Sigma  = matrix( c(sigma_a^2, cov_ab,
+                   cov_ab   , sigma_b^2), ncol = 2)   # Covariance Matrix
+```
+
+Matricies are filled by column down:
+```{r 13.4}
+matrix(1:4, nrow = 2, ncol = 2)
+```
+
+```{r 13.5}
+sigmas = c(sigma_a, sigma_b)       # Standard Deviations
+Rho = matrix( c(1, rho,
+                rho, 1), nrow = 2) # Correlation Matrix
+# Matrix Multiplication to get Covariance Matrix
+Sigma = diag(sigmas) %*% Rho %*% diag(sigmas)
+```
+
+```{r 13.6}
+N_cafes = 20
+```
+
+```{r 13.7}
+library(MASS)
+set.seed(5)
+vary_effects = mvrnorm(N_cafes, Mu, Sigma)
+```
+
+```{r 13.8}
+a_cafe = vary_effects[,1]
+b_cafe = vary_effects[,2]
+```
+
+```{r 13.9}
+plot(a_cafe, b_cafe, col=rangi2,
+     xlab="intercepts (a_cafe)", ylab = "slopes (b_cafe)")
+
+library(ellipse)
+for(l in c(0.1, 0.3, 0.5, 0.8, 0.99)){
+  lines(ellipse(Sigma, centre = Mu, level = l), col = col.alpha("black", 0.2))
+}
+```
+
+```{r 13.10}
+N_visits    = 10
+afternoon   = rep(0:1, N_visits * N_cafes / 2)
+cafe_id     = rep(1:N_cafes, each = N_visits) 
+mu          = a_cafe[cafe_id] + b_cafe[cafe_id] * afternoon
+sigma       = 0.5 # Stdev Within Cafes
+wait        = rnorm(N_visits * N_cafes, mu, sigma)
+d           = data.frame(cafe = cafe_id, afternoon = afternoon, wait = wait)
+```
+
+```{r 13.11}
+R = rlkjcorr(1e4, K = 2, eta = 2)
+dens(R[,1,2] , xlab = "correlation")
+```
+
+```{r 13.12}
+m13_1 = map2stan(
+  alist(
+    wait ~ dnorm( mu, sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe] * afternoon,
+    c(a_cafe, b_cafe)[cafe] ~ dmvnorm2(c(a,b), sigma_cafe, Rho),
+    a ~ dnorm(0, 10),
+    b ~ dnorm(0, 10),
+    sigma_cafe ~ dcauchy(0, 2),
+    sigma ~ dcauchy(0, 2),
+    Rho ~ dlkjcorr(4)
+  ),
+  data = d, iter = 1e4, warmup = 2e3, chains = 4
+)
+stancode(m13_1)
+```
+
+
+```{r 13.13}
+post = extract.samples(m13_1)
+dens( post$Rho[,1,2] )
+```
+
